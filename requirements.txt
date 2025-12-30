@@ -14,3 +14,10 @@ uvicorn==0.40.0
 requests
 boto3
 faster-whisper
+sentence-transformers
+torch
+weaviate-client
+python-docx
+pypdf
+pyhwp
+olefile

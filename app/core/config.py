@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     AWS_ACCESS_KEY: str
     AWS_SECRET_KEY: str
+    EMBED_MODEL: str = "BAAI/bge-m3"
+    EMBED_CHUNK_WORDS: int = 400
+    EMBED_CHUNK_OVERLAP: int = 50
 
     # AI 모델 설정 (기본값 설정 가능)
     SPLIT_SECONDS: int = 600
@@ -13,7 +16,14 @@ class Settings(BaseSettings):
     SUM_MODEL: str = "gpt-4o"
 
     # Spring 콜백 설정
-    CALLBACK_HEADER: str = "X-Internal-Callback-Key"
+    CALLBACK_HEADER: str 
+    CALLBACK_KEY: str 
+    CALLBACK_BASE_URL: str | None = None
+
+    # Weaviate
+    WEAVIATE_HTTP_URL: str | None = "http://localhost:8080"
+    WEAVIATE_GRPC_PORT: int = 50051
+    WEAVIATE_COLLECTION: str = "ProvDocuments"
 
     # AWS S3 설정
     AWS_REGION: str 
