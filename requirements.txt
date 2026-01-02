@@ -21,3 +21,6 @@ python-docx
 pypdf
 pyhwp
 olefile
+httpx
+SQLAlchemy
+pymysql

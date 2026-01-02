@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 import weaviate
 from weaviate.classes.config import Configure, DataType, Property
@@ -7,6 +7,7 @@ from weaviate.classes.query import Filter
 from weaviate.connect import ConnectionParams
 
 from app.core.config import settings
+from app.services.embeddings import embed_chunks
 
 
 COLLECTION_NAME = settings.WEAVIATE_COLLECTION
@@ -91,3 +92,52 @@ def delete_prov_chunks(com_id: str, prov_no: int) -> int:
     except Exception as e:
         print(f"[WEAVIATE] delete result parse failed: {e} raw={res}")
         return 0
+
+
+def search_prov_chunks(
+    query: str,
+    top_k: int = 5,
+    com_id: Optional[str] = None,
+    prov_no: Optional[int] = None,
+) -> List[str]:
+    """
+    Vector search over 규약 청크. Returns top chunks' content text.
+    """
+    client = get_client()
+    ensure_collection(client)
+    coll = client.collections.get(COLLECTION_NAME)
+
+    query_vec = embed_chunks([query])[0].tolist()
+
+    where_filters = []
+    if com_id:
+        where_filters.append(Filter.by_property("comId").equal(com_id))
+    if prov_no is not None:
+        where_filters.append(Filter.by_property("provNo").equal(prov_no))
+    where = Filter.all_of(where_filters) if where_filters else None
+
+    res = coll.query.near_vector(
+        near_vector=query_vec,
+        filters=where,
+        limit=top_k,
+        return_properties=["content", "originalName", "chunkIndex", "comId", "provNo"],
+    )
+
+    snippets: List[str] = []
+    try:
+        for obj in res.objects:  # type: ignore[attr-defined]
+            props = obj.properties or {}
+            content = props.get("content")
+            if not content:
+                continue
+            origin = props.get("originalName") or props.get("comId")
+            idx = props.get("chunkIndex")
+            prefix_parts = [p for p in [origin, f"chunk#{idx}" if idx is not None else None] if p]
+            prefix = " ".join(prefix_parts)
+            snippet = f"{prefix} {content}".strip() if prefix else content
+            snippets.append(snippet)
+    except Exception as e:
+        print(f"[WEAVIATE] search parse failed: {e} raw={res}")
+        return []
+
+    return snippets

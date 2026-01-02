@@ -4,7 +4,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.schemas import ProvEmbeddingRequest
 from app.services.callbacks import callback_to_spring
-from app.services.documents import chunk_text, download_object, extract_text
+from app.services.documents import chunk_by_article, download_object, extract_text
 from app.services.embeddings import embed_chunks
 from app.services.weaviate_store import store_prov_chunks
 
@@ -44,13 +44,15 @@ def process_prov_embedding(req: ProvEmbeddingRequest):
             text = extract_text(file_path, req.contentType)
             print(f"[PROV] extracted chars={len(text)}")
 
-            print(f"[PROV] STEP3 chunking words_per_chunk={settings.EMBED_CHUNK_WORDS} overlap={settings.EMBED_CHUNK_OVERLAP}")
-            chunks = chunk_text(
+            base_title = Path(req.originalName).stem or req.originalName
+            print(f"[PROV] STEP3 chunking by article docTitle={base_title}")
+            doc_title, chunks = chunk_by_article(
                 text,
+                base_title,
                 settings.EMBED_CHUNK_WORDS,
                 settings.EMBED_CHUNK_OVERLAP,
             )
-            print(f"[PROV] chunk count={len(chunks)}")
+            print(f"[PROV] chunk count={len(chunks)} docTitle={doc_title}")
 
             print(f"[PROV] STEP4 embedding start model={settings.EMBED_MODEL}")
             # 실제 임베딩 (필요시 이 결과를 벡터DB 등에 저장)

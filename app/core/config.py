@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     EMBED_MODEL: str = "BAAI/bge-m3"
     EMBED_CHUNK_WORDS: int = 400
     EMBED_CHUNK_OVERLAP: int = 50
+    RDB_MODEL: str = "gpt-4o-mini"
 
     # AI 모델 설정 (기본값 설정 가능)
     SPLIT_SECONDS: int = 600
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
     WEAVIATE_HTTP_URL: str | None = "http://localhost:8080"
     WEAVIATE_GRPC_PORT: int = 50051
     WEAVIATE_COLLECTION: str = "ProvDocuments"
+
+    # RDB (직원 정보 조회 등)
+    EMP_DB_DSN: str | None = None  # 예: sqlite:////path/to/file.db 또는 postgres://...
 
     # AWS S3 설정
     AWS_REGION: str 

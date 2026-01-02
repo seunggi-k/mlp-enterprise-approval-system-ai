@@ -28,3 +28,12 @@ class ProvEmbeddingRequest(BaseModel):
 class ProvEmbeddingDeleteRequest(BaseModel):
     comId: str
     provNo: int
+
+
+class ChatbotRunRequest(BaseModel):
+    messageId: str
+    empId: str
+    comId: Optional[str] = None
+    question: str
+    callbackUrl: str
+    callbackKey: str
