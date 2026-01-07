@@ -30,7 +30,7 @@ def post_with_retry(callback_url: str, callback_key: str, payload: dict[str, Any
         try:
             with httpx.Client(timeout=timeout) as http:
                 res = http.post(callback_url, headers=headers, json=payload)
-            print(f"[CALLBACK] attempt={attempt} status={res.status_code} url={callback_url}")
+
             res.raise_for_status()
             return
         except Exception as e:

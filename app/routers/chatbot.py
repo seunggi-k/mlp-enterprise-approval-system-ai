@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
 
 from app.schemas import ChatbotRunRequest
-from app.services.chatbot_service import run_chatbot
+from app.services.chatbot.chatbot_service import run_chatbot
 
 router = APIRouter(prefix="/ai/chatbot", tags=["chatbot"])
 

@@ -3,8 +3,8 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.schemas import RunRequest
-from app.services.ai import gpt_summarize, whisper_transcribe
-from app.services.audio import download_audio, split_audio
+from app.services.meetings.ai import gpt_summarize, whisper_transcribe
+from app.services.meetings.audio import download_audio, split_audio
 from app.services.callbacks import callback_to_spring, format_callback_url
 from app.services.storage import presign_get_url
 

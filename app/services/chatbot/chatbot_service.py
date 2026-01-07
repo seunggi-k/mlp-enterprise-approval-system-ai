@@ -1,28 +1,13 @@
 from typing import Iterable, List
 
-from app.schemas import ChatbotRunRequest, ChatHistoryMessage
-from app.services.agent_planner import plan_query
-from app.services.agent_synthesizer import stream_final_answer
-from app.services.agent_tools import execute_rdb_tasks, format_rows
-from app.services.callback_client import post_with_retry, validate_callback_url
-from app.services.weaviate_store import search_prov_chunks
-from app.services.rdb_service import query_db_with_llm
-
-
-def _history_to_text(history: List[ChatHistoryMessage] | None) -> str:
-    if not history:
-        return ""
-    lines: List[str] = []
-    for m in history:
-        if isinstance(m, dict):
-            role = str(m.get("role", "")).lower()
-            content = m.get("content", "")
-        else:
-            role = m.role.lower()
-            content = m.content
-        prefix = "User" if role.startswith("user") else "Assistant"
-        lines.append(f"{prefix}: {content}")
-    return "\n".join(lines)
+from app.schemas import ChatbotRunRequest
+from app.services.chatbot.agent_planner import plan_query
+from app.services.chatbot.agent_synthesizer import stream_final_answer
+from app.services.chatbot.callback_client import post_with_retry, validate_callback_url
+from app.services.provdocuments.weaviate_store import search_prov_chunks
+from app.services.chatbot.rdb_service import query_db_with_llm
+from app.services.chatbot.agent_tools import format_rows
+from app.services.chatbot.utils import _history_to_text
 
 
 def _run_rag_tasks(rag_tasks, question: str) -> List[str]:
@@ -54,31 +39,21 @@ def run_chatbot(req: ChatbotRunRequest):
         rag_contexts: List[str] = []
 
         if plan.mode in {"rdb", "hybrid"}:
-            rdb_tasks = [t.dict() for t in plan.rdb_tasks]
-            rows, summaries = execute_rdb_tasks(rdb_tasks, req.comId, req.empId)
-            db_rows.extend(rows)
-            print(f"[CHATBOT] RDB tasks summaries: {summaries}")
-            if not rows and plan.mode == "rdb":
-                # 자유 질의 폴백 (화이트리스트/필터 적용됨)
-                try:
-                    db_rows = query_db_with_llm(req.question, req.comId, req.empId)
-                except Exception as e:
-                    print(f"[CHATBOT] fallback LLM SQL failed: {e}")
-
-        if plan.mode in {"rag", "hybrid"}:
-            rag_contexts.extend(_run_rag_tasks([t.dict() for t in plan.rag_tasks], req.question))
-
-        # 폴백: 둘 다 비었으면 기본 검색/질의 시도
-        if not db_rows and plan.mode == "hybrid":
+            # 자동 Text-to-SQL만 사용 (사전 정의 태스크 미사용)
             try:
                 db_rows = query_db_with_llm(req.question, req.comId, req.empId)
+                print(f"[CHATBOT] db_rows: {db_rows}")
             except Exception as e:
-                print(f"[CHATBOT] hybrid fallback SQL failed: {e}")
-        if not rag_contexts and plan.mode == "hybrid":
-            rag_contexts = _run_rag_tasks([], req.question)
+                import traceback
+                print(f"[CHATBOT] LLM SQL failed: {e}\n{traceback.format_exc()}")
+
+        if plan.mode in {"rag", "hybrid"}:
+            rag_contexts.extend(_run_rag_tasks([t.model_dump() for t in plan.rag_tasks], req.question))
 
         db_text = format_rows(db_rows)
+        print("[CHATBOT] db_text: "+db_text)
         rag_text = "\n".join(rag_contexts)
+        print("[CHATBOT] rag_text: "+rag_text)
 
         if not db_text and not rag_text:
             msg = "근거와 데이터가 부족해 답변할 수 없습니다.\n"
@@ -86,7 +61,7 @@ def run_chatbot(req: ChatbotRunRequest):
             post_with_retry(callback_url, req.callbackKey, {"messageId": req.messageId, "done": True, "success": True})
             return
 
-        stream: Iterable[str] = stream_final_answer(
+        stream: Iterable[dict] = stream_final_answer(
             question=req.question,
             history=req.history,
             db_text=db_text,
@@ -95,17 +70,34 @@ def run_chatbot(req: ChatbotRunRequest):
             mode=plan.mode,
         )
 
-        for delta in stream:
-            payload = {
-                "messageId": req.messageId,
-                "chunk": delta,
-                "done": False,
-                "success": True,
-            }
-            post_with_retry(callback_url, req.callbackKey, payload)
-
-        done_payload = {"messageId": req.messageId, "done": True, "success": True}
-        post_with_retry(callback_url, req.callbackKey, done_payload)
+        try:
+            for delta in stream:
+                if delta.get("chunk"):
+                    payload = {
+                        "messageId": req.messageId,
+                        "chunk": delta["chunk"],
+                        "done": False,
+                        "success": True,
+                    }
+                    post_with_retry(callback_url, req.callbackKey, payload)
+                if delta.get("done"):
+                    action = delta.get("action")
+                    done_payload = {
+                        "messageId": req.messageId,
+                        "done": True,
+                        "success": True,
+                    }
+                    if action:
+                        done_payload["actionId"] = action.get("actionId")
+                        done_payload["params"] = action.get("params")
+                    print(f"[CHATBOT] done payload -> {done_payload}")
+                    post_with_retry(callback_url, req.callbackKey, done_payload)
+        except Exception as e:
+            print(f"[CHATBOT] stream failed: {e}")
+            msg = "근거와 데이터가 부족해 답변할 수 없습니다.\n"
+            post_with_retry(callback_url, req.callbackKey, {"messageId": req.messageId, "chunk": msg, "done": False, "success": True})
+            post_with_retry(callback_url, req.callbackKey, {"messageId": req.messageId, "done": True, "success": True})
+            return
     except Exception as e:
         err_msg = str(e)
         print(f"[CHATBOT] error: {err_msg}")

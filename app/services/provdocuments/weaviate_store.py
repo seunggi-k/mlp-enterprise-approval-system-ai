@@ -7,7 +7,7 @@ from weaviate.classes.query import Filter
 from weaviate.connect import ConnectionParams
 
 from app.core.config import settings
-from app.services.embeddings import embed_chunks
+from app.services.provdocuments.embeddings import embed_chunks
 
 
 COLLECTION_NAME = settings.WEAVIATE_COLLECTION

@@ -8,7 +8,7 @@ from app.schemas import ProvEmbeddingDeleteRequest, ProvEmbeddingRequest, RunReq
 from app.routers.chatbot import router as chatbot_router
 from app.workers.meetings import process_job
 from app.workers.prov_documents import process_prov_embedding
-from app.services.weaviate_store import delete_prov_chunks
+from app.services.provdocuments.weaviate_store import delete_prov_chunks
 
 app = FastAPI(title="Meeting AI")
 app.include_router(chatbot_router)

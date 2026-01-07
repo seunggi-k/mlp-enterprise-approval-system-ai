@@ -37,6 +37,7 @@ class ChatbotRunRequest(BaseModel):
     question: str
     callbackUrl: str
     callbackKey: str
+    sessionId: Optional[str] = None  # Spring에서 action 연동 시 필요할 수 있음
     history: Optional[list["ChatHistoryMessage"]] = None
 
 
