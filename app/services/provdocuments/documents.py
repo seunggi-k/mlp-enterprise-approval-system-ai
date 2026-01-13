@@ -47,6 +47,8 @@ def extract_text(file_path: Path, content_type: str | None = None) -> str:
                 check=True,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',  # 이 부분을 추가하세요
+                errors='ignore'    # 혹시 모를 깨짐 방지를 위해 추가 권장
             )
             return proc.stdout
         except FileNotFoundError as e:

@@ -98,7 +98,7 @@ def stream_final_answer(
                 },
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.2,
+            temperature=0,
             stream=True,
         )
         for chunk in resp:
@@ -120,7 +120,7 @@ def stream_final_answer(
                 },
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.2,
+            temperature=0,
         )
         full = resp.choices[0].message.content or ""
         for para in full.split("\n\n"):
