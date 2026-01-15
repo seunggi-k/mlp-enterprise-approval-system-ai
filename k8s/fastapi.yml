@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bizportal-fastapi
+  namespace: bizportal
+  labels:
+    app: bizportal-fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bizportal-fastapi
+  template:
+    metadata:
+      labels:
+        app: bizportal-fastapi
+    spec:
+      containers:
+        - name: fastapi
+          image: 118320467932.dkr.ecr.us-west-1.amazonaws.com/terraform-ecr-fastapi:${IMAGE_TAG}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: bizportal-fastapi-config
+            - secretRef:
+                name: bizportal-fastapi-secrets
+          env:
+            - name: PORT
+              value: "8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bizportal-fastapi
+  namespace: bizportal
+  labels:
+    app: bizportal-fastapi
+spec:
+  type: ClusterIP
+  selector:
+    app: bizportal-fastapi
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
