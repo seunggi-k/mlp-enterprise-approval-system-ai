@@ -84,7 +84,7 @@ pipeline {
                     envsubst < ${FASTAPI_K8S_MANIFEST} | kubectl apply -n ${K8S_NAMESPACE} -f -
 
                     echo "==> Rollout"
-                    kubectl -n ${K8S_NAMESPACE} rollout status deploy/${FASTAPI_DEPLOY_NAME} --timeout=180s
+                    kubectl -n ${K8S_NAMESPACE} rollout status deploy/${FASTAPI_DEPLOY_NAME}
                     kubectl -n ${K8S_NAMESPACE} get pods -l app=${FASTAPI_DEPLOY_NAME} -o wide || true
                 '''
                 }
