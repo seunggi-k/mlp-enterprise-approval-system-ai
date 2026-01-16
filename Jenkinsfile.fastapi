@@ -74,7 +74,6 @@ pipeline {
 
                     echo "==> Apply FastAPI ConfigMap/Secret first"
                     kubectl apply -n ${K8S_NAMESPACE} -f k8s/fastapi-configmap.yml
-                    kubectl apply -n ${K8S_NAMESPACE} -f k8s/fastapi-secrets.yml
 
                     echo "==> Verify"
                     kubectl -n ${K8S_NAMESPACE} get configmap | grep -i fastapi || true
