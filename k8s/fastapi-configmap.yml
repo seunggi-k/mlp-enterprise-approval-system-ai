@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bizportal-fastapi-config
+  namespace: bizportal
+data:
+  AWS_REGION: "us-west-1"
+  AWS_BUCKET: "to-bizportal-us"
+
+  CALLBACK_HEADER: "X-Internal-Callback-Key"
+  CALLBACK_DELETE_HEADER: "X-Internal-Callback-Key"
+
+  # ⚠️ 클러스터에서는 localhost 쓰면 안 됨 (FastAPI 자기 자신을 가리킴)
+  CALLBACK_BASE_URL: "http://bizportal-api-svc.bizportal.svc.cluster.local:8090"
+
+  WEAVIATE_HTTP_URL: "http://weaviate.bizportal.svc.cluster.local:8080"
+  WEAVIATE_GRPC_PORT: "50051"
+  WEAVIATE_COLLECTION: "ProvDocuments"
+
+  RDB_MODEL: "gpt-4o-mini"

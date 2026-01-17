@@ -1,0 +1,99 @@
+pipeline {
+    agent any
+
+    options { disableConcurrentBuilds() }
+
+    environment {
+        AWS_REGION          = "us-west-1"
+        AWS_DEFAULT_REGION  = "us-west-1"
+
+        // ===== FastAPI =====
+        IMAGE_TAG             = "${BUILD_NUMBER}"
+        FASTAPI_ECR_REPO_NAME = "terraform-ecr-fastapi"
+        FASTAPI_ECR_REPO_URI  = "118320467932.dkr.ecr.us-west-1.amazonaws.com/terraform-ecr-fastapi"
+
+        FASTAPI_K8S_MANIFEST  = "k8s/fastapi.yml"
+        FASTAPI_DEPLOY_NAME   = "bizportal-fastapi"
+
+        // ===== Cluster =====
+        EKS_CLUSTER_NAME    = "terraform-eks-cluster"
+        K8S_NAMESPACE       = "bizportal"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git rev-parse HEAD'
+                sh 'ls -la'
+            }
+        }
+
+        stage('Docker Build & Push (FastAPI -> ECR)') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                      set -e
+                      aws sts get-caller-identity
+
+                      # ECR repo 없으면 생성
+                      aws ecr describe-repositories --region ${AWS_REGION} --repository-names ${FASTAPI_ECR_REPO_NAME} \
+                        || aws ecr create-repository --region ${AWS_REGION} --repository-name ${FASTAPI_ECR_REPO_NAME}
+
+                      # ECR 로그인 (레지스트리 주소로 로그인해야 함)
+                      aws ecr get-login-password --region ${AWS_REGION} \
+                        | docker login --username AWS --password-stdin ${FASTAPI_ECR_REPO_URI%/*}
+
+                      # Build & Push
+                      docker build -t ${FASTAPI_ECR_REPO_URI}:${IMAGE_TAG} .
+                      docker push ${FASTAPI_ECR_REPO_URI}:${IMAGE_TAG}
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy FastAPI (ConfigMap + Secret + K8S)') {
+            steps {
+                withCredentials([
+                string(credentialsId: 'AWS_ACCESS_KEY', variable: 'AWS_ACCESS_KEY_ID'),
+                string(credentialsId: 'AWS_SECRET_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                sh '''
+                    set -e
+                    aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
+
+                    # envsubst 주입용
+                    export FASTAPI_ECR_REPO_URI=${FASTAPI_ECR_REPO_URI}
+                    export IMAGE_TAG=${IMAGE_TAG}
+                    export K8S_NAMESPACE=${K8S_NAMESPACE}
+                    export FASTAPI_DEPLOY_NAME=${FASTAPI_DEPLOY_NAME}
+
+                    echo "==> Apply FastAPI ConfigMap/Secret first"
+                    kubectl apply -n ${K8S_NAMESPACE} -f k8s/fastapi-configmap.yml
+
+                    echo "==> Verify"
+                    kubectl -n ${K8S_NAMESPACE} get configmap | grep -i fastapi || true
+                    kubectl -n ${K8S_NAMESPACE} get secret   | grep -i fastapi || true
+
+                    echo "==> Apply FastAPI Deployment/Service (with envsubst)"
+                    envsubst < ${FASTAPI_K8S_MANIFEST} | kubectl apply -n ${K8S_NAMESPACE} -f -
+
+                    echo "==> Rollout"
+                    kubectl -n ${K8S_NAMESPACE} rollout status deploy/${FASTAPI_DEPLOY_NAME}
+                    kubectl -n ${K8S_NAMESPACE} get pods -l app=${FASTAPI_DEPLOY_NAME} -o wide || true
+                '''
+                }
+            }
+        }
+    }
+
+    post {
+      always {
+        sh 'docker system prune -af || true'
+      }
+    }
+}
