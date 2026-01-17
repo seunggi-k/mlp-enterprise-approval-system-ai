@@ -20,14 +20,18 @@ def _absolute_callback_url(cb: str) -> str:
     if cb.startswith("http://") or cb.startswith("https://"):
         return cb
     base = settings.CALLBACK_BASE_URL
-    if base:
-        return base.rstrip("/") + "/" + cb.lstrip("/")
-    return cb  # fallback: try as-is; will fail loudly if invalid
+    if not base:
+        raise RuntimeError("callbackUrl이 상대경로인데 CALLBACK_BASE_URL이 설정되지 않았습니다.")
+    return base.rstrip("/") + "/" + cb.lstrip("/")
 
 
 def process_prov_embedding(req: ProvEmbeddingRequest):
     prov_no = req.provNo
-    callback_url = _absolute_callback_url(_format_callback_url(req.callbackUrl, prov_no))
+    raw_callback_url = req.callbackUrl
+    print(f"[PROV] raw callbackUrl={raw_callback_url}")
+    callback_url = _absolute_callback_url(_format_callback_url(raw_callback_url, prov_no))
+    if not raw_callback_url.startswith(("http://", "https://")):
+        print(f"[PROV] resolved callbackUrl={callback_url} base={settings.CALLBACK_BASE_URL}")
     print(f"[PROV] raw callbackUrl={req.callbackUrl}")
     callback_key = req.callbackKey or settings.CALLBACK_KEY
     if not callback_key:
