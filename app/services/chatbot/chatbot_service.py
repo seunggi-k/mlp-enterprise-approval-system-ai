@@ -71,23 +71,40 @@ def run_chatbot(req: ChatbotRunRequest):
         )
 
         try:
+            import time
+
+            flush_interval_s = 0.1
             seq = 0
             full_answer_parts: List[str] = []
+            buffer_text = ""
+            last_flush = time.monotonic()
+
+            def _flush_buffer():
+                nonlocal buffer_text, seq, last_flush
+                if not buffer_text:
+                    return
+                payload = {
+                    "messageId": req.messageId,
+                    "chunk": buffer_text,
+                    "seq": seq,
+                    "done": False,
+                    "success": True,
+                }
+                print(f"[CHATBOT] stream chunk seq={seq} messageId={req.messageId} size={len(buffer_text)}")
+                seq += 1
+                post_with_retry(callback_url, req.callbackKey, payload)
+                buffer_text = ""
+                last_flush = time.monotonic()
+
             for delta in stream:
                 if delta.get("chunk"):
                     chunk = delta["chunk"]
                     full_answer_parts.append(chunk)
-                    payload = {
-                        "messageId": req.messageId,
-                        "chunk": chunk,
-                        "seq": seq,
-                        "done": False,
-                        "success": True,
-                    }
-                    print(f"[CHATBOT] stream chunk seq={seq} messageId={req.messageId} delta={delta['chunk']!r}")
-                    seq += 1
-                    post_with_retry(callback_url, req.callbackKey, payload)
+                    buffer_text += chunk
+                    if time.monotonic() - last_flush >= flush_interval_s:
+                        _flush_buffer()
                 if delta.get("done"):
+                    _flush_buffer()
                     action = delta.get("action")
                     done_payload = {
                         "messageId": req.messageId,
