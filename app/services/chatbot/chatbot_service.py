@@ -71,14 +71,20 @@ def run_chatbot(req: ChatbotRunRequest):
         )
 
         try:
+            seq = 0
+            full_answer_parts: List[str] = []
             for delta in stream:
                 if delta.get("chunk"):
+                    chunk = delta["chunk"]
+                    full_answer_parts.append(chunk)
                     payload = {
                         "messageId": req.messageId,
-                        "chunk": delta["chunk"],
+                        "chunk": chunk,
+                        "seq": seq,
                         "done": False,
                         "success": True,
                     }
+                    seq += 1
                     post_with_retry(callback_url, req.callbackKey, payload)
                 if delta.get("done"):
                     action = delta.get("action")
@@ -86,6 +92,7 @@ def run_chatbot(req: ChatbotRunRequest):
                         "messageId": req.messageId,
                         "done": True,
                         "success": True,
+                        "fullText": "".join(full_answer_parts),
                     }
                     if action:
                         done_payload["actionId"] = action.get("actionId")
