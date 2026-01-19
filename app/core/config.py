@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     EMBED_MODEL: str = "text-embedding-3-small"
     EMBED_CHUNK_WORDS: int = 400
     EMBED_CHUNK_OVERLAP: int = 50
-    RDB_MODEL: str = "gpt-4o-mini"
+    RDB_MODEL: str = "gpt-4o"
 
     # AI 모델 설정 (기본값 설정 가능)
     SPLIT_SECONDS: int = 600

@@ -17,4 +17,4 @@ data:
   WEAVIATE_GRPC_PORT: "50051"
   WEAVIATE_COLLECTION: "ProvDocuments"
 
-  RDB_MODEL: "gpt-4o-mini"
+  RDB_MODEL: "gpt-4o"
